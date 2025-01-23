@@ -4,104 +4,61 @@ import (
 	"fmt"
 	"net"
 	"os"
-
-	"github.com/spf13/cobra"
 )
 
-var address string
+func help() {
+	fmt.Println("Usage: web-look-go [domain] [command]")
+	fmt.Println()
+	fmt.Println("Commands:")
+	fmt.Println("cn: returns the canonical name for the given host")
+	fmt.Println("ip: returns the host's IPv4 and IPv6 addresses")
+	fmt.Println("mx: returns the DNS MX records for the given domain name sorted by preference")
+	fmt.Println("ns: returns the DNS NS records for the given domain name")
+}
 
 func main() {
-	rootCmd := &cobra.Command{
-		Use:     "wlc",
-		Short:   "Let's you query IPs, CNAMEs, MX records and Name Servers!",
-		Version: "1.1.1",
+	if len(os.Args) != 3 {
+		help()
+		return
 	}
 
-	cn(rootCmd)
-	ip(rootCmd)
-	mx(rootCmd)
-	ns(rootCmd)
-
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	domain, command := os.Args[1], os.Args[2]
+	switch command {
+	case "cn":
+		cname, err := net.LookupCNAME(domain)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return
+		}
+		fmt.Println(cname)
+	case "ip":
+		ipAddrs, err := net.LookupIP(domain)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return
+		}
+		for _, addr := range ipAddrs {
+			fmt.Println(addr)
+		}
+	case "mx":
+		mxRecords, err := net.LookupMX(domain)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return
+		}
+		for _, record := range mxRecords {
+			fmt.Println(record.Host, record.Pref)
+		}
+	case "ns":
+		nsRecords, err := net.LookupNS(domain)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return
+		}
+		for _, record := range nsRecords {
+			fmt.Println(record.Host)
+		}
+	default:
+		help()
 	}
-}
-
-func cn(rootCmd *cobra.Command) {
-	cnCmd := &cobra.Command{
-		Use:   "cn",
-		Short: "Looks up the Common Name for a particular host",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			commonName, err := net.LookupCNAME(address)
-			if err != nil {
-				return err
-			}
-			fmt.Println(commonName)
-			return nil
-		},
-	}
-
-	cnCmd.Flags().StringVarP(&address, "address", "a", "google.com", "Sets the host to be looked up")
-	rootCmd.AddCommand(cnCmd)
-}
-
-func ip(rootCmd *cobra.Command) {
-	ipCmd := &cobra.Command{
-		Use:   "ip",
-		Short: "Looks up the IP addresses for a particular host",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ips, err := net.LookupIP(address)
-			if err != nil {
-				return err
-			}
-			for _, ip := range ips {
-				fmt.Println(ip)
-			}
-			return nil
-		},
-	}
-
-	ipCmd.Flags().StringVarP(&address, "address", "a", "google.com", "Sets the host to be looked up")
-	rootCmd.AddCommand(ipCmd)
-}
-
-func mx(rootCmd *cobra.Command) {
-	mxCmd := &cobra.Command{
-		Use:   "mx",
-		Short: "Looks up the Mail eXchange DNS for a particular host",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			mxRecords, err := net.LookupMX(address)
-			if err != nil {
-				return err
-			}
-			for _, record := range mxRecords {
-				fmt.Println(record.Host, record.Pref)
-			}
-			return nil
-		},
-	}
-
-	mxCmd.Flags().StringVarP(&address, "address", "a", "google.com", "Sets the host to be looked up")
-	rootCmd.AddCommand(mxCmd)
-}
-
-func ns(rootCmd *cobra.Command) {
-	nsCmd := &cobra.Command{
-		Use:   "ns",
-		Short: "Looks up the Name Servers for a particular host",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			nameServers, err := net.LookupNS(address)
-			if err != nil {
-				return err
-			}
-			for _, nameServer := range nameServers {
-				fmt.Println(nameServer.Host)
-			}
-			return nil
-		},
-	}
-
-	nsCmd.Flags().StringVarP(&address, "address", "a", "google.com", "Sets the host to be looked up")
-	rootCmd.AddCommand(nsCmd)
 }
